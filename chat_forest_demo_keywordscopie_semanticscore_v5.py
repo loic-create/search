@@ -166,19 +166,30 @@ st.markdown(THEME, unsafe_allow_html=True)
 # ============================ Data Loading ====================================
 
 @st.cache_data
+from pathlib import Path
+import pandas as pd
+import streamlit as st
+
+@st.cache_data
 def load_data() -> pd.DataFrame:
-    candidates = ["Companies.xslx", "Companies.xlsx", "Companies.csv"]
+    base = Path(__file__).resolve().parent  # folder of this .py (i.e., /.../search)
+    candidates = [
+        base / "Companies.xlsx",
+        base / "Companies.csv",
+        base.parent / "Companies.xlsx",      # fallback if you move files later
+        base.parent / "Companies.csv",
+    ]
     last_exc = None
-    for path in candidates:
+    for p in candidates:
         try:
-            if path.lower().endswith(".csv"):
-                return pd.read_csv(path)
-            else:
-                return pd.read_excel(path)
+            if p.suffix.lower() == ".csv" and p.exists():
+                return pd.read_csv(p)
+            if p.suffix.lower() in (".xlsx", ".xls") and p.exists():
+                return pd.read_excel(p)
         except Exception as e:
             last_exc = e
             continue
-    st.error("Couldn't load Companies.xslx / Companies.xlsx / Companies.csv")
+    st.error("Couldn't load Companies.xlsx / Companies.csv")
     if last_exc is not None:
         st.exception(last_exc)
     return pd.DataFrame()
