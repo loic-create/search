@@ -6,6 +6,7 @@ import numpy as np
 import unicodedata
 import os
 import streamlit as st
+from pathlib import Path   # <-- add here
 
 # ============================ CONFIG (tweakable) ===============================
 
@@ -171,13 +172,12 @@ import pandas as pd
 import streamlit as st
 
 @st.cache_data
+@st.cache_data
 def load_data() -> pd.DataFrame:
-    base = Path(__file__).resolve().parent  # folder of this .py (i.e., /.../search)
+    base = Path(__file__).resolve().parent  # folder where your .py lives
     candidates = [
         base / "Companies.xlsx",
         base / "Companies.csv",
-        base.parent / "Companies.xlsx",      # fallback if you move files later
-        base.parent / "Companies.csv",
     ]
     last_exc = None
     for p in candidates:
