@@ -7,8 +7,6 @@ import unicodedata
 import os
 import streamlit as st
 from pathlib import Path
-from urllib.parse import quote
-
 
 # ============================ CONFIG (tweakable) ===============================
 
@@ -156,14 +154,6 @@ ALIASES = {
     "justificatif": "evidence",
 }
 
-def find_email_column(df: pd.DataFrame) -> str | None:
-    # Détecte la première colonne qui ressemble à un email
-    for c in df.columns:
-        nc = norm(c)
-        if "email" in nc or "mail" in nc or "e-mail" in nc:
-            return c
-    return None
-
 def norm(s: Any) -> str:
     if s is None: return ""
     s = str(s).lower()
@@ -263,78 +253,6 @@ def run_pipeline(user_query: str, df: pd.DataFrame, api_key: str, weights: Dict[
     )
     return results
 
-def gmail_compose_link(to_email: str | None, company: str | None, body_hint: str | None = None,
-                       subject_override: str | None = None, body_override: str | None = None) -> str:
-    from urllib.parse import quote
-
-    subject = subject_override or f"Prise de contact — {company or ''}".strip(" —")
-
-    if body_override:
-        body = body_override
-    else:
-        body_lines = [
-            f"Bonjour {company or ''},",
-            "",
-            "Je me permets de vous contacter suite à notre recherche d’entreprises pertinentes.",
-        ]
-        if body_hint:
-            body_lines.append(f"Éléments notés : {body_hint}")
-        body_lines += [
-            "",
-            "Seriez-vous disponible pour échanger rapidement ?",
-            "",
-            "Bien à vous,",
-            "—",
-        ]
-        body = "\n".join(body_lines)
-
-    to_param = quote((to_email or "").strip())
-    su = quote(subject)
-    bo = quote(body)
-    return f"https://mail.google.com/mail/?view=cm&fs=1&tf=1&to={to_param}&su={su}&body={bo}"
-
-def make_template_email(template: str, company: str, hint: str | None = None) -> tuple[str, str]:
-    t = (template or "").strip().lower()
-    base_sig = "\n\nBien à vous,\n—"
-    if t == "midipile":
-        subject = f"Midipile x {company} — mobilité légère urbaine"
-        body = (
-            f"Bonjour {company},\n\n"
-            "Je vous contacte au sujet de Midipile (mobilité légère, logistique urbaine bas-carbone)."
-            + (f"\nÉléments notés : {hint}" if hint else "")
-            + "\n\nSeriez-vous disponible pour un échange rapide ?"
-            + base_sig
-        )
-    elif t == "entent":
-        subject = f"Entent x {company} — partenariat potentiel"
-        body = (
-            f"Bonjour {company},\n\n"
-            "Dans le cadre d’un repérage d’acteurs, j’aimerais vous présenter Entent et explorer des synergies."
-            + (f"\nÉléments notés : {hint}" if hint else "")
-            + "\n\nOuvert à un court échange ?"
-            + base_sig
-        )
-    elif t == "seaturns":
-        subject = f"Seaturns x {company} — énergie des vagues"
-        body = (
-            f"Bonjour {company},\n\n"
-            "Je me permets de vous écrire au sujet de Seaturns (valorisation de l’énergie houlomotrice)."
-            + (f"\nÉléments notés : {hint}" if hint else "")
-            + "\n\nPartants pour une prise de contact ?"
-            + base_sig
-        )
-    else:
-        subject = f"Prise de contact — {company}"
-        body = (
-            f"Bonjour {company},\n\n"
-            "Je me permets de vous contacter."
-            + (f"\nÉléments notés : {hint}" if hint else "")
-            + "\n\nSeriez-vous disponible pour échanger ?"
-            + base_sig
-        )
-    return subject, body
-
-
 # ============================ Main UI =========================================
 
 if df.empty:
@@ -383,139 +301,23 @@ if query:
 
     st.markdown(f"**{len(results):,} result(s){' (filtrés)' if use_filter else ''}**")
 
-    # --- Prépare les colonnes spéciales (checkbox + contacter) ---
-
-     # --- Prépare les colonnes spéciales (checkbox + template + contacter) ---
-    if results.empty:
-        st.warning("Aucun résultat à afficher pour cette requête.")
-    else:
-        results = results.copy()
-
-        # Sélecteur global du canal de contact (remplace la colonne "Contact via")
-        TPL_OPTIONS = ["Entent", "Midipile", "Seaturns"]  # ordre demandé
-
-        # Layout : grande zone vide + petite colonne à droite
-        col_empty, col_select = st.columns([6, 1])
-        with col_select:
-            tpl_choice = st.selectbox(
-                " ",  # label vide
-                TPL_OPTIONS,
-                index=0,
-                label_visibility="collapsed"
-            )
-        tpl_choice_norm = tpl_choice.lower()
-
-
-        EMAIL_COL = find_email_column(results)
-
-        # Colonne checkbox d'export (cochée par défaut)
-        CHECK_COL = "✅ Export"
-        if CHECK_COL not in results.columns:
-            results[CHECK_COL] = True
-
-        # Colonnes source
-        company_col = "name" if "name" in results.columns else (next((c for c in results.columns if "name" in norm(c)), None))
-        body_hint_col = "keywords" if "keywords" in results.columns else (next((c for c in results.columns if "keyword" in norm(c)), None))
-        email_col = EMAIL_COL if EMAIL_COL in results.columns else None
-
-        def _compose_url(row: pd.Series) -> str:
-            company = str(row.get(company_col, "")).strip() if company_col else ""
-            to_email = str(row.get(email_col, "")).strip() if email_col else ""
-            hint = str(row.get(body_hint_col, "")).strip() if body_hint_col else ""
-            subject, body = make_template_email(tpl_choice_norm, company, hint or None)
-            return gmail_compose_link(
-                to_email or None,
-                company or None,
-                None,
-                subject_override=subject,
-                body_override=body
-            )
-
-        CONTACT_COL = "Contacter"
-        results[CONTACT_COL] = results.apply(_compose_url, axis=1)
-
-        # Met les colonnes UI à droite (checkbox, template, contacter)
-        ordered_cols = [c for c in results.columns if c not in (CHECK_COL, CONTACT_COL)] + [CHECK_COL, CONTACT_COL]
-        results = results[ordered_cols]
-
-        # --- Configuration d'affichage pour st.data_editor ---
-        col_config = {
-            "semantic_score": st.column_config.ProgressColumn(
-                "Semantic score",
-                help="Pertinence sémantique de 0 à 1",
-                min_value=0.0,
-                max_value=1.0,
-                format="%.2f",
-                width="small",
-            ),
-            CHECK_COL: st.column_config.CheckboxColumn(
-                "Exporter",
-                help="Décochez pour exclure la ligne de l'export",
-                default=True,
-                width="small",
-            ),
-            CONTACT_COL: st.column_config.LinkColumn(
-                "Contacter",
-                help="Ouvre un brouillon Gmail prérempli selon le template choisi",
-                display_text="Contacter",
-                width="small",
-            ),
-        }
-        for c in results.columns:
-            if c not in col_config:
-                col_config[c] = st.column_config.Column(c, width="small")
-
-        # Centrer visuellement la dernière colonne (Contacter)
-        st.markdown("""
-            <style>
-            /* Centre le contenu de la dernière colonne du data_editor (ici: Contacter) */
-            div[data-testid="stDataFrame"] td:last-child, 
-            div[data-testid="stDataFrame"] th:last-child {
-                text-align: center !important;
-            }
-            /* S'assure que le lien occupe la largeur pour un vrai centrage */
-            div[data-testid="stDataFrame"] td:last-child a {
-                display: inline-block; width: 100%; text-align: center;
-            }
-            </style>
-        """, unsafe_allow_html=True)
-
-        st.caption("Choisissez le canal de contact dans le sélecteur au-dessus (Entent / Midipile / Seaturns), puis cliquez sur 'Contacter'.")
-        edited_df = st.data_editor(
-            results,
-            column_config=col_config,
-            use_container_width=True,
-            hide_index=True,
-            height=600,
-            num_rows="fixed",
+    col_config = {
+        "semantic_score": st.column_config.ProgressColumn(
+            "Semantic score",
+            help="Pertinence sémantique de 0 à 1",
+            min_value=0.0,
+            max_value=1.0,
+            format="%.2f",
+            width="small",
         )
+    }
+    for c in results.columns:
+        if c != "semantic_score":
+            col_config[c] = st.column_config.Column(c, width="small")
 
-        # -- EXPORT : ne garder que les lignes cochées --
-        CHECK_COL = "✅ Export"
-        CONTACT_COL = "Contacter"
-
-        # 1) masque “coché” robuste (gère NaN/None)
-        checked_mask = edited_df[CHECK_COL].fillna(False).astype(bool)
-
-        # 2) ne prendre que les lignes cochées
-        exportable = edited_df.loc[checked_mask].copy()
-
-        # 3) retirer les colonnes techniques
-        to_drop = [c for c in (CHECK_COL, CONTACT_COL) if c in exportable.columns]
-        if to_drop:
-            exportable.drop(columns=to_drop, inplace=True)
-
-        # 4) (optionnel) préparer les payloads d’export
-        csv_bytes = exportable.to_csv(index=False).encode("utf-8")
-
-        import io
-        xlsx_buf = io.BytesIO()
-        with pd.ExcelWriter(xlsx_buf, engine="xlsxwriter") as writer:
-            exportable.to_excel(writer, index=False, sheet_name="Export")
-        xlsx_bytes = xlsx_buf.getvalue()
-
-        # 5) (optionnel) boutons d’export
-        # st.download_button("📥 Export CSV", data=csv_bytes, file_name="export_coches.csv", mime="text/csv", disabled=len(exportable)==0)
-        # st.download_button("📊 Export Excel", data=xlsx_bytes, file_name="export_coches.xlsx",
-        #                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", disabled=len(exportable)==0)
-
+    st.dataframe(
+        results,
+        use_container_width=True,
+        column_config=col_config,
+        height=600,
+    )
