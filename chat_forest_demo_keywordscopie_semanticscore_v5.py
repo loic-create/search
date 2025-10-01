@@ -6,12 +6,13 @@ import numpy as np
 import unicodedata
 import os
 import streamlit as st
-from pathlib import Path   # <-- add here
+from pathlib import Path
 
 # ============================ CONFIG (tweakable) ===============================
 
-# 🔐 API key embedded
-api_key = st.secrets["HARDCODED_API_KEY"]
+# 🔐 API key from Streamlit Secrets (define it in Streamlit Cloud: Settings → Secrets)
+# Secrets must contain: OPENAI_API_KEY="sk-...."
+API_KEY = st.secrets["HARDCODED_API_KEY"]
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 
@@ -61,16 +62,8 @@ html, body, .stApp {
     linear-gradient(180deg, var(--bg), var(--bg2)) !important;
   color: var(--ink);
 }
-/* widen the usable width to help show all columns */
 .block-container{padding-top: 1.2rem; max-width: 96vw;}
-
-h1, h2, h3, .stMarkdown h1 {
-  color:#E9FFFB !important;
-  letter-spacing:.2px;
-  text-shadow:0 1px 0 rgba(0,0,0,.25);
-}
-
-/* Card effect for main body */
+h1, h2, h3, .stMarkdown h1 { color:#E9FFFB !important; letter-spacing:.2px; text-shadow:0 1px 0 rgba(0,0,0,.25); }
 section.main > div:has(> .stMarkdown + div) {
   background: linear-gradient(180deg, var(--card1), var(--card2));
   border: 1px solid var(--line);
@@ -78,76 +71,30 @@ section.main > div:has(> .stMarkdown + div) {
   box-shadow: var(--shadow);
   padding: 18px 18px 10px 18px;
 }
-
-/* Force widget labels to white */
 label, .stCaption, .stRadio > label, .stCheckbox > label, .stSelectbox > label,
 .stMultiSelect > label, .stTextInput > label, .stNumberInput > label,
 .stSlider > label, .stToggle > label, .stColumns label, .stMarkdown label {
-  color: #ffffff !important;
-  opacity: 1 !important;
-  text-shadow: none !important;
+  color: #ffffff !important; opacity: 1 !important; text-shadow: none !important;
 }
-/* Also the small texts under or inside widgets */
-.stSlider span, .stToggle span, .stTextInput label span, .st-emotion-cache * label span {
-  color:#ffffff !important;
-}
-
-/* Search input */
+.stSlider span, .stToggle span, .stTextInput label span, .st-emotion-cache * label span { color:#ffffff !important; }
 .stTextInput > div > div > input {
-  background: #f2f4f7 !important;
-  border: 1px solid var(--line) !important;
-  color: #121212 !important;
-  caret-color: #121212 !important;
-  border-radius: var(--radius-sm) !important;
-  font-weight: 600 !important;
+  background: #f2f4f7 !important; border: 1px solid var(--line) !important; color: #121212 !important;
+  caret-color: #121212 !important; border-radius: var(--radius-sm) !important; font-weight: 600 !important;
 }
-.stTextInput > div > div > input::placeholder{
-  color: #4b4b4b !important;
-  opacity: 1 !important;
-  font-weight: 500 !important;
-}
-.stTextInput label, .stTextInput label span, .stTextInput > label > div {
-  color: #ffffff !important; /* ensure white */
-  font-weight: 700 !important;
-  font-size: 1rem !important;
-  opacity: 1 !important;
-}
+.stTextInput > div > div > input::placeholder{ color: #4b4b4b !important; opacity: 1 !important; font-weight: 500 !important; }
+.stTextInput label, .stTextInput label span, .stTextInput > label > div { color: #ffffff !important; font-weight: 700 !important; font-size: 1rem !important; opacity: 1 !important; }
 .stTextInput > div > div > input:focus {
-  outline: none !important;
-  border-color: var(--mint) !important;
-  box-shadow: 0 0 0 3px rgba(143,243,227,.28) !important;
+  outline: none !important; border-color: var(--mint) !important; box-shadow: 0 0 0 3px rgba(143,243,227,.28) !important;
 }
-
-/* Dataframe polish & compact layout to fit all columns */
-[data-testid="stTable"], .stDataFrame {
-  border-radius: var(--radius);
-  overflow: visible !important; /* allow full width, no horizontal scroll */
-  box-shadow: var(--shadow);
-}
-/* Make the inner scroll container visible instead of scrolling */
-.stDataFrame [data-testid="stHorizontalBlock"]{
-  overflow-x: visible !important;
-}
-/* Table tweaks */
+[data-testid="stTable"], .stDataFrame { border-radius: var(--radius); overflow: visible !important; box-shadow: var(--shadow); }
+.stDataFrame [data-testid="stHorizontalBlock"]{ overflow-x: visible !important; }
 .stDataFrame table { table-layout: auto !important; width: 100% !important; }
 .stDataFrame td, .stDataFrame th {
-  border-color: rgba(255,255,255,.06) !important;
-  color: var(--ink) !important;
-  padding: 6px 8px !important;           /* compact cells */
-  font-size: 13px !important;             /* smaller text to fit more */
-  line-height: 1.2 !important;
-  white-space: normal !important;          /* wrap long text */
-  word-break: break-word !important;
+  border-color: rgba(255,255,255,.06) !important; color: var(--ink) !important; padding: 6px 8px !important;
+  font-size: 13px !important; line-height: 1.2 !important; white-space: normal !important; word-break: break-word !important;
 }
-/* Headers coloring retained */
-.stDataFrame [class*="row_heading"] { background: #0d3a39 !important; color: var(--muted) !important; }
-.stDataFrame [class*="blank"] { background: #0d3a39 !important; }
-.stDataFrame [class*="col_heading"] {
-  background: #0d3a39 !important;
-  color: var(--muted) !important;
-  font-weight: 800 !important;
-  border-bottom: 1px solid var(--line) !important;
-}
+.stDataFrame [class*="row_heading"], .stDataFrame [class*="blank"] { background: #0d3a39 !important; color: var(--muted) !important; }
+.stDataFrame [class*="col_heading"] { background: #0d3a39 !important; color: var(--muted) !important; font-weight: 800 !important; border-bottom: 1px solid var(--line) !important; }
 .stDataFrame tbody tr:nth-child(odd) td { background: rgba(255,255,255,.02) !important; }
 .stDataFrame tbody tr:nth-child(even) td { background: rgba(255,255,255,.04) !important; }
 .muted{ color: var(--muted); }
@@ -167,14 +114,8 @@ st.markdown(THEME, unsafe_allow_html=True)
 # ============================ Data Loading ====================================
 
 @st.cache_data
-from pathlib import Path
-import pandas as pd
-import streamlit as st
-
-@st.cache_data
-@st.cache_data
 def load_data() -> pd.DataFrame:
-    base = Path(__file__).resolve().parent  # folder where your .py lives
+    base = Path(__file__).resolve().parent  # folder where this .py lives (your 'search/' folder)
     candidates = [
         base / "Companies.xlsx",
         base / "Companies.csv",
@@ -182,9 +123,9 @@ def load_data() -> pd.DataFrame:
     last_exc = None
     for p in candidates:
         try:
-            if p.suffix.lower() == ".csv" and p.exists():
+            if p.exists() and p.suffix.lower() == ".csv":
                 return pd.read_csv(p)
-            if p.suffix.lower() in (".xlsx", ".xls") and p.exists():
+            if p.exists() and p.suffix.lower() in (".xlsx", ".xls"):
                 return pd.read_excel(p)
         except Exception as e:
             last_exc = e
@@ -263,7 +204,6 @@ def embed_texts_cached(api_key: str, model: str, texts: List[str]) -> np.ndarray
     return arr / norms
 
 def _build_semantic_text_for_row(row: pd.Series, cols: List[str], weights: Dict[str, float]) -> str:
-    """Weighted concatenation using repetition to emphasize fields."""
     base = {"name":3, "evidence":2, "keywords":2, "ville":2}
     parts: List[str] = []
     for c in cols:
@@ -275,9 +215,15 @@ def _build_semantic_text_for_row(row: pd.Series, cols: List[str], weights: Dict[
         parts.extend([val] * rep)
     return " | ".join(parts)
 
-def semantic_filter(df: pd.DataFrame, cols: List[str], terms: List[str], api_key: str,
-                    weights: Dict[str, float],
-                    candidate_k: int = SEMANTIC_CANDIDATE_K, top_n: int = SEMANTIC_TOP_N) -> pd.DataFrame:
+def semantic_filter(
+    df: pd.DataFrame,
+    cols: List[str],
+    terms: List[str],
+    api_key: str,
+    weights: Dict[str, float],
+    candidate_k: int = SEMANTIC_CANDIDATE_K,
+    top_n: int = SEMANTIC_TOP_N
+) -> pd.DataFrame:
     if df.empty or not terms:
         df = df.copy()
         df["semantic_score"] = np.nan
@@ -325,12 +271,10 @@ with st.expander("Pondération des critères (optionnel)"):
         w_keywords = st.slider("Importance des **mots-clés**", 0.2, 3.0, 1.0, 0.1)
         w_evidence = st.slider("Importance des **preuves/evidence**", 0.2, 3.0, 1.0, 0.1)
 
-# labels in white are already enforced by CSS above
 weights = {"ville": w_ville, "name": w_name, "keywords": w_keywords, "evidence": w_evidence}
 
-api_key = HARDCODED_API_KEY or os.environ.get("OPENAI_API_KEY") or (
-    st.secrets.get("OPENAI_API_KEY") if "OPENAI_API_KEY" in st.secrets else None
-)
+# Use the single source of truth for key:
+api_key = API_KEY
 
 if query:
     if not api_key:
@@ -339,17 +283,14 @@ if query:
 
     results = run_pipeline(query, df, api_key, weights)
 
-    # Ensure the column exists
     if "semantic_score" not in results.columns:
         results["semantic_score"] = 1.0
 
-    # Put semantic_score FIRST
     cols = list(results.columns)
     if "semantic_score" in cols:
         cols = ["semantic_score"] + [c for c in cols if c != "semantic_score"]
         results = results[cols]
 
-    # Filter controls ABOVE the table
     use_filter = st.toggle("Activer le filtre de score (0–1)", value=True)
     threshold = st.slider("Seuil de score sémantique", 0.0, 1.0, 0.7, 0.01)
 
@@ -360,7 +301,6 @@ if query:
 
     st.markdown(f"**{len(results):,} result(s){' (filtrés)' if use_filter else ''}**")
 
-    # Build compact column_config to help fit everything
     col_config = {
         "semantic_score": st.column_config.ProgressColumn(
             "Semantic score",
@@ -375,7 +315,6 @@ if query:
         if c != "semantic_score":
             col_config[c] = st.column_config.Column(c, width="small")
 
-    # Render table
     st.dataframe(
         results,
         use_container_width=True,
