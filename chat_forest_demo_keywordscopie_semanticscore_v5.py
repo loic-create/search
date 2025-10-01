@@ -10,7 +10,7 @@ import streamlit as st
 # ============================ CONFIG (tweakable) ===============================
 
 # 🔐 API key embedded
-HARDCODED_API_KEY = "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"
+api_key = st.secrets["HARDCODED_API_KEY"]
 
 EMBEDDING_MODEL = "text-embedding-3-small"
 
